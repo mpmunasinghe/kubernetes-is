@@ -26,9 +26,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - wso2is
+    - wso2is.com
+    secretName: wso2is-ing-secret
   rules:
-  - host: wso2is
+  - host: wso2is.com
     http:
       paths:
       - path: /

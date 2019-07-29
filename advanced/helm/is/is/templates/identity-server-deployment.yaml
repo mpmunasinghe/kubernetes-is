@@ -30,27 +30,49 @@ spec:
       labels:
         deployment: wso2is
     spec:
+      initContainers:
+        - name: init-securevault
+          image: wso2/wso2is:5.8.0
+          command:
+              - /bin/sh
+              - -c
+              - cp -RL /home/wso2carbon/temp/* /home/wso2carbon/data/
+          volumeMounts:
+            - name: data
+              mountPath: /home/wso2carbon/data
+            - name: secret-volume-cipher-pass
+              mountPath: /home/wso2carbon/temp
+            - name: secret-volume
+              mountPath: /home/wso2carbon/temp/repository/conf/security
       containers:
       - name: wso2is
         {{- if or (eq .Values.username "") (eq .Values.password "") }}
         image: wso2/wso2is:5.8.0
         {{- else }}
-        image: docker.wso2.com/wso2is:5.8.0
+        image: mpmrnd/wso2is:5.8.0
         {{- end }}
         livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - nc -z localhost 9443
+#          exec:
+#            command:
+#            - /bin/sh
+#            - -c
+#            - nc -z localhost 9443
+          httpGet:
+            path: /api/health-check/v1.0/health
+            port: 9443
+            scheme: HTTPS
           initialDelaySeconds: 250
           periodSeconds: 10
         readinessProbe:
-          exec:
-            command:
-              - /bin/sh
-              - -c
-              - nc -z localhost 9443
+#          exec:
+#            command:
+#              - /bin/sh
+#              - -c
+#              - nc -z localhost 9443
+          httpGet:
+            path: /api/health-check/v1.0/health
+            port: 9443
+            scheme: HTTPS
           initialDelaySeconds: 250
           periodSeconds: 10
         lifecycle:
@@ -78,10 +100,20 @@ spec:
           mountPath: /home/wso2carbon/wso2is-5.8.0/repository/deployment
         - name: shared-tenants-persistent-disk
           mountPath: /home/wso2carbon/wso2is-5.8.0/repository/tenants
+        - name: data
+          mountPath: /home/wso2carbon/data
+        - name: wso2server
+          mountPath: /home/wso2carbon/wso2-config-volume/bin
+        - name: identity-server-conf-tomcat
+          mountPath: /home/wso2carbon/wso2-config-volume/repository/conf/tomcat
+        - name: identity-server-dashboard-conf-site
+          mountPath: /home/wso2carbon/wso2-config-volume/repository/deployment/server/jaggeryapps/dashboard/conf/
+#        - name: identity-server-keystore
+#          mountPath: /home/wso2carbon/wso2-config-volume/repository/resources/security
       serviceAccountName: {{ .Values.svcaccount }}
       {{ if and (not (eq .Values.username "")) (not (eq .Values.password "")) }}
       imagePullSecrets:
-      - name: wso2creds
+      - name: regcred
       {{ end }}
       volumes:
       - name: identity-server-conf
@@ -102,3 +134,26 @@ spec:
       - name: shared-tenants-persistent-disk
         persistentVolumeClaim:
           claimName: is-shared-tenants-volume-claim
+      - name: secret-volume-cipher-pass
+        secret:
+          secretName: identity-server-cipher-pass
+      - name: secret-volume
+        secret:
+          secretName: identity-server-conf-security
+      - name: wso2server
+        configMap:
+          name: wso2server
+      - name: identity-server-conf-tomcat
+        configMap:
+          name: identity-server-conf-tomcat
+      - name: data
+        emptyDir: {}
+      - name: identity-server-keystore
+        configMap:
+          name: identity-server-keystore
+      - name: identity-server-dashboard-conf-site
+        configMap:
+          name: identity-server-dashboard-conf-site
+#      - name: identity-server-client-truststore
+#        configMap:
+#          name: identity-server-client-truststore
